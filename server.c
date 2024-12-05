@@ -41,11 +41,17 @@ int main() {
 		// close target FIFO after writing the message
 
 		target = open(req.target, O_WRONLY);
-		
-		write(target, &req, sizeof(req));
+		if (target < 0) {
+			printf("ERROR: Cannot open target FIFO for writting");
+			continue;
+		}
+
+		if (write(target, &req, sizeof(req)) < 0) {
+			printf("ERROR: Cannot write to target FIFO");
+		}
 		
 		close(target);
-
+		
 	}
 	close(server);
 	close(dummyfd);

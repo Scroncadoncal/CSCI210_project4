@@ -37,8 +37,15 @@ void sendmsg (char *user, char *target, char *msg) {
 	strcpy(req.msg, msg);
 
 	int server = open("serverFIFO", O_WRONLY);
+	if (server < 0) {
+		printf("ERROR: Cannot open server\n");
+		return;
+	}
 
-	write(server, &req, sizeof(req));
+	ssize_t write_bytes = write(server, &req, sizeof(req));
+	if (write_bytes < 0) {
+		printf("ERROR: Cannot write to server\n");
+	}
 
 	close(server);
 
@@ -53,13 +60,26 @@ void* messageListener(void *arg) {
 	// Incoming message from [source]: [message]
 	// put an end of line at the end of the message
 
-	char fifo[63];
-	sprintf(fifo, "&s", uName);
+	char fifo[60];
+	sprintf(fifo, "%s", uName);
 
 	int userFIFO = open(fifo, O_RDONLY);
 
+	if (userFIFO < 0) {
+		printf("ERROR: Cannot open user FIFO\n");
+		pthread_exit((void*)0);
+	}
+
 	while (1) {
 		struct message msg;
+		ssize_t read_bytes = read(userFIFO, &msg, sizeof(msg));
+		if (read_bytes == -1) {
+			printf("ERROR: Cannot read from user FIFO\n");
+			break;
+		} else if (read_bytes == 0) {
+			continue;
+		}
+
 		printf("Incoming message from %s: %s\n", msg.source, msg.msg);
 	}
 
@@ -98,7 +118,7 @@ int main(int argc, char **argv) {
     // create the message listener thread
 
 	pthread_t threadlistener;
-	int ret = pthread_create(&threadlistener, NULL, messagelistener, NULL);
+	int ret = pthread_create(&threadlistener, NULL, messageListener, NULL);
 	if (ret < 0) {
 		printf("ERROR: Cannot create listener thread");
 		exit(1);
